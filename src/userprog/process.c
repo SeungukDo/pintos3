@@ -1,14 +1,16 @@
-#include "userprog/process.h"
-#include <debug.h>
-#include <inttypes.h>
-#include <round.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "userprog/gdt.h"
-#include "userprog/pagedir.h"
-#include "userprog/syscall.h"
-#include "userprog/tss.h"
+#include <debug.h>
+#include <inttypes.h>
+#include <round.h>
+#include "process.h"
+#include "gdt.h"
+#include "pagedir.h"
+#include "syscall.h"
+#include "tss.h"
+#include "vm/frame.h"
+#include "vm/page.h"
 #include "filesys/directory.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
@@ -174,6 +176,8 @@ void process_exit(void)
     sema_up(&pcb->exit_sema);
     if (pcb && !pcb->parent)
         palloc_free_page(pcb);
+    vm_destroy(&cur->vm);
+
 
     /* Close the running file. */
     lock_acquire(filesys_lock);
@@ -560,14 +564,16 @@ setup_stack(void **esp)
     uint8_t *kpage;
     bool success = false;
 
-    kpage = palloc_get_page(PAL_USER | PAL_ZERO);
+    kpage = alloc_page(PAL_USER | PAL_ZERO);
+    //kpage = get_alloc(PAL_USER | PAL_ZERO);
     if (kpage != NULL)
     {
         success = install_page(((uint8_t *)PHYS_BASE) - PGSIZE, kpage, true);
         if (success)
             *esp = PHYS_BASE;
         else
-            palloc_free_page(kpage);
+            //palloc_free_page(kpage);
+            free_page(kpage);
     }
     return success;
 }
@@ -637,4 +643,41 @@ static void push_arguments(int argc, char **argv, void **esp)
 
     /* Push dummy return address. */
     *esp -= sizeof(uintptr_t);
+}
+
+bool expand_stack(void* addr){
+    if(PHYS_BASE - (int)pg_round_down(addr) > (1 << 23))
+        return false;
+
+    struct page* temp_page = alloc_page(PAL_USER);
+    if(!temp_page)
+        return false;
+
+    struct vm_entry* vme = malloc(sizeof(struct vm_entry));
+    if(!vme)
+        return false;
+    vme->type = VM_ANON;
+    vme->vaddr = pg_round_down(addr);
+    vme->writable = true;
+    vme->is_loaded = true;
+    vme->addi = true;
+    
+    temp_page->vme = vme;
+
+    if(!install_page(vme->vaddr, temp_page->kaddr, vme->writable)
+            || !insert_vme(&thread_current()->vm, vme)){
+        free(vme);
+        free_page(temp_page);
+        return false;
+    }
+
+    if(intr_context()){
+        vme->addi = false;
+    }
+
+    return true;
+}
+
+bool verify_stack(void* sp){
+
 }

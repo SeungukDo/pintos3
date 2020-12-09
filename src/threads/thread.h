@@ -4,6 +4,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include "hash.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -80,6 +81,9 @@ typedef int tid_t;
    only because they are mutually exclusive: only a thread in the
    ready state is on the run queue, whereas only a thread in the
    blocked state is on a semaphore wait list. */
+static struct list lru_list;
+static struct lock lru_list_lock;
+static struct page *lru_clock;
 struct thread
 {
     /* Owned by thread.c. */
@@ -102,6 +106,9 @@ struct thread
     struct list_elem doelem; /* List element for donators list. */
     struct thread *donee;    /* Thread that is given priority. */
 
+    struct hash vm;
+    struct list mappingList;
+    int map_id;
     /* Owned by thread.c. */
     int nice;       /* Figure that indicates how nice to others. */
     int recent_cpu; /* Weighted average amount of received CPU time. */
