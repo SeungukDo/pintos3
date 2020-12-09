@@ -19,7 +19,7 @@ static bool vm_less_func(const struct hash_elem *a, const struct hash_elem *b)
     struct vm_entry *a_entry = hash_entry(a, struct vm_entry, elem);
     struct vm_entry *b_entry = hash_entry(b, struct vm_entry, elem);
 
-    return b_entry->vaddr > a_entry->vaddr;
+    return pg_no(b_entry->vaddr) > pg_no(a_entry->vaddr);
 }
 
 bool insert_vme(struct hash *vm, struct vm_entry *vme)
@@ -40,10 +40,10 @@ struct vm_entry *find_vme(void *vaddr)
 {
     struct vm_entry vme;
     struct hash_elem *e;
-
+    struct thread *t = thread_current();
     vme.vaddr = (void *)(pg_no(vaddr) << PGBITS);
 
-    e = hash_find(&(thread_current()->vm), &vme.elem);
+    e = hash_find(&(t->vm), &vme.elem);
 
     if (e == NULL)
         return NULL;
@@ -69,3 +69,16 @@ void page_destructor (struct hash_elem *e, void *aux UNUSED)
   }
 }
 */
+
+bool load_file(void *kaddr, struct vm_entry *vme)
+{
+    file_seek(vme->file, vme->offset);
+    if (file_read(vme->file, kaddr, vme->offset) != vme->read_bytes)
+    {
+        return false;
+    }
+    memset(kaddr + vme->read_bytes, 0, vme->zero_bytes);
+    vme->is_loaded = true;
+
+    return true;
+}

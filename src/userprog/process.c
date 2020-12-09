@@ -18,6 +18,7 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "vm/page.h"
 
 static thread_func start_process NO_RETURN;
 static bool load(const char *cmdline, void (**eip)(void), void **esp);
@@ -93,6 +94,10 @@ start_process(void *pcb_)
 
     /* Set the current process's pcb to PCB. */
     thread_set_pcb(pcb);
+
+    /* Initialize hash table */
+    struct hash *vm = &thread_current()->vm;
+    vm_init(vm);
 
     /* Initialize interrupt frame. */
     memset(&if_, 0, sizeof if_);
@@ -179,6 +184,8 @@ void process_exit(void)
     lock_acquire(filesys_lock);
     file_close(thread_get_running_file());
     lock_release(filesys_lock);
+
+    vm_destroy(&cur->vm);
 
     /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
@@ -524,25 +531,22 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
         size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
         size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
-        /* Get a page of memory. */
-        uint8_t *kpage = palloc_get_page(PAL_USER);
-        if (kpage == NULL)
-            return false;
-
-        /* Load this page. */
-        if (file_read(file, kpage, page_read_bytes) != (int)page_read_bytes)
+        struct vm_entry *vme = (struct vm_entry *)malloc(sizeof(struct vm_entry));
+        vme->type = VM_BIN;
+        vme->vaddr = upage;
+        if (vme == NULL)
         {
-            palloc_free_page(kpage);
+            free(vme);
             return false;
         }
-        memset(kpage + page_read_bytes, 0, page_zero_bytes);
+        vme->writable = writable;
+        vme->is_loaded = true;
+        vme->file = file;
+        vme->offset = ofs;
+        vme->read_bytes = page_read_bytes;
+        vme->zero_bytes = page_zero_bytes;
 
-        /* Add the page to the process's address space. */
-        if (!install_page(upage, kpage, writable))
-        {
-            palloc_free_page(kpage);
-            return false;
-        }
+        insert_vme(&thread_current()->vm, &vme->elem);
 
         /* Advance. */
         read_bytes -= page_read_bytes;
@@ -569,6 +573,17 @@ setup_stack(void **esp)
         else
             palloc_free_page(kpage);
     }
+
+    struct vm_entry *vme = (struct vm_entry *)malloc(sizeof(struct vm_entry));
+    vme->type = VM_BIN;
+    vme->vaddr = PHYS_BASE - PGSIZE;
+    vme->writable = true; //잘 모르겠음
+    vme->is_loaded = true;
+    vme->file = NULL;
+    vme->read_bytes = 0;
+    vme->zero_bytes = PGSIZE;
+    hash_insert(&thread_current()->vm, &vme->elem);
+
     return success;
 }
 

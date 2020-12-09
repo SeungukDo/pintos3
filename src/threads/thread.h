@@ -4,14 +4,15 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include <hash.h>
 
 /* States in a thread's life cycle. */
 enum thread_status
 {
-    THREAD_RUNNING, /* Running thread. */
-    THREAD_READY,   /* Not running but ready to run. */
-    THREAD_BLOCKED, /* Waiting for an event to trigger. */
-    THREAD_DYING    /* About to be destroyed. */
+   THREAD_RUNNING, /* Running thread. */
+   THREAD_READY,   /* Not running but ready to run. */
+   THREAD_BLOCKED, /* Waiting for an event to trigger. */
+   THREAD_DYING    /* About to be destroyed. */
 };
 
 /* Thread identifier type.
@@ -82,42 +83,44 @@ typedef int tid_t;
    blocked state is on a semaphore wait list. */
 struct thread
 {
-    /* Owned by thread.c. */
-    tid_t tid;                 /* Thread identifier. */
-    enum thread_status status; /* Thread state. */
-    char name[16];             /* Name (for debugging purposes). */
-    uint8_t *stack;            /* Saved stack pointer. */
-    int priority;              /* Priority. */
-    struct list_elem allelem;  /* List element for all threads list. */
+   /* Owned by thread.c. */
+   tid_t tid;                 /* Thread identifier. */
+   enum thread_status status; /* Thread state. */
+   char name[16];             /* Name (for debugging purposes). */
+   uint8_t *stack;            /* Saved stack pointer. */
+   int priority;              /* Priority. */
+   struct list_elem allelem;  /* List element for all threads list. */
 
-    /* Shared between thread.c and synch.c. */
-    struct list_elem elem; /* List element. */
+   /* Shared between thread.c and synch.c. */
+   struct list_elem elem; /* List element. */
 
-    /* Owned by devices/timer.c. */
-    int64_t wake_ticks; /* Ticks to wake up. */
+   /* Owned by devices/timer.c. */
+   int64_t wake_ticks; /* Ticks to wake up. */
 
-    /* Shared between thread.c and synch.c. */
-    int original_priority;   /* Original priority before donation. */
-    struct list donators;    /* List of donators. */
-    struct list_elem doelem; /* List element for donators list. */
-    struct thread *donee;    /* Thread that is given priority. */
+   /* Shared between thread.c and synch.c. */
+   int original_priority;   /* Original priority before donation. */
+   struct list donators;    /* List of donators. */
+   struct list_elem doelem; /* List element for donators list. */
+   struct thread *donee;    /* Thread that is given priority. */
 
-    /* Owned by thread.c. */
-    int nice;       /* Figure that indicates how nice to others. */
-    int recent_cpu; /* Weighted average amount of received CPU time. */
+   /* Owned by thread.c. */
+   int nice;       /* Figure that indicates how nice to others. */
+   int recent_cpu; /* Weighted average amount of received CPU time. */
 
 #ifdef USERPROG
-    /* Shared between userprog/process.c and userprog/syscall.c. */
-    uint32_t *pagedir;         /* Page directory. */
-    struct process *pcb;       /* Process control block. */
-    struct list children;      /* List of children processes. */
-    struct list fdt;           /* List of file descriptor entries. */
-    int next_fd;               /* File descriptor for next file. */
-    struct file *running_file; /* Currently running file. */
+   /* Shared between userprog/process.c and userprog/syscall.c. */
+   uint32_t *pagedir;         /* Page directory. */
+   struct process *pcb;       /* Process control block. */
+   struct list children;      /* List of children processes. */
+   struct list fdt;           /* List of file descriptor entries. */
+   int next_fd;               /* File descriptor for next file. */
+   struct file *running_file; /* Currently running file. */
 #endif
 
-    /* Owned by thread.c. */
-    unsigned magic; /* Detects stack overflow. */
+   /* Owned by thread.c. */
+   unsigned magic; /* Detects stack overflow. */
+
+   struct hash vm;
 };
 
 /* If false (default), use round-robin scheduler.

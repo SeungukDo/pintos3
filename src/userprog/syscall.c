@@ -18,7 +18,9 @@ struct lock filesys_lock;
 
 static void syscall_handler(struct intr_frame *);
 
-static void check_vaddr(const void *);
+struct vm_entry *check_vaddr(const void *);
+void check_valid_buffer(void *buffer, unsigned size, void *esp, bool to_write);
+void check_valid_string(const void *str, void *esp);
 
 static void syscall_halt(void);
 static pid_t syscall_exec(const char *);
@@ -32,6 +34,7 @@ static int syscall_write(int, const void *, unsigned);
 static void syscall_seek(int, unsigned);
 static unsigned syscall_tell(int);
 
+bool handle_mm_fault(struct vm_entry *vme);
 /* Registers the system call interrupt handler. */
 void syscall_init(void)
 {
@@ -76,6 +79,9 @@ syscall_handler(struct intr_frame *f)
         check_vaddr(esp + sizeof(uintptr_t));
         check_vaddr(esp + 2 * sizeof(uintptr_t) - 1);
         cmd_line = *(char **)(esp + sizeof(uintptr_t));
+
+        if (!check_vaddr(cmd_line))
+            syscall_exit(-1);
 
         f->eax = (uint32_t)syscall_exec(cmd_line);
         break;
@@ -123,6 +129,9 @@ syscall_handler(struct intr_frame *f)
         check_vaddr(esp + 2 * sizeof(uintptr_t) - 1);
         file = *(char **)(esp + sizeof(uintptr_t));
 
+        if (!check_vaddr(file))
+            syscall_exit(-1);
+
         f->eax = (uint32_t)syscall_open(file);
         break;
     }
@@ -143,11 +152,14 @@ syscall_handler(struct intr_frame *f)
         void *buffer;
         unsigned size;
 
-        check_vaddr(esp + sizeof(uintptr_t));
-        check_vaddr(esp + 4 * sizeof(uintptr_t) - 1);
         fd = *(int *)(esp + sizeof(uintptr_t));
         buffer = *(void **)(esp + 2 * sizeof(uintptr_t));
         size = *(unsigned *)(esp + 3 * sizeof(uintptr_t));
+
+        //check_vaddr(esp + sizeof(uintptr_t));
+        check_valid_buffer(buffer, size, esp + sizeof(uintptr_t), false);
+        //check_vaddr(esp + 4 * sizeof(uintptr_t) - 1);
+        check_valid_buffer(buffer, size, esp + 4 * sizeof(uintptr_t) - 1, true);
 
         f->eax = (uint32_t)syscall_read(fd, buffer, size);
         break;
@@ -158,8 +170,8 @@ syscall_handler(struct intr_frame *f)
         void *buffer;
         unsigned size;
 
-        check_vaddr(esp + sizeof(uintptr_t));
-        check_vaddr(esp + 4 * sizeof(uintptr_t) - 1);
+        //check_vaddr(esp + sizeof(uintptr_t));
+        //check_vaddr(esp + 4 * sizeof(uintptr_t) - 1);
         fd = *(int *)(esp + sizeof(uintptr_t));
         buffer = *(void **)(esp + 2 * sizeof(uintptr_t));
         size = *(unsigned *)(esp + 3 * sizeof(uintptr_t));
@@ -209,11 +221,33 @@ syscall_handler(struct intr_frame *f)
 
 /* Checks user-provided virtual address. If it is
    invalid, terminates the current process. */
-static void
+struct vm_entry *
 check_vaddr(const void *vaddr)
 {
     if (!vaddr || !is_user_vaddr(vaddr) ||
         !pagedir_get_page(thread_get_pagedir(), vaddr))
+        syscall_exit(-1);
+    struct vm_entry *vme = find_vme(vaddr);
+    return vme;
+}
+
+void check_valid_buffer(void *buffer, unsigned size, void *esp, bool to_write)
+{
+    int i;
+    for (i = 0; i < size; i++)
+    {
+        struct vm_entry *vme = check_vaddr(buffer + i);
+        if (vme == NULL || (to_write == true && !(vme->writable)))
+        {
+            syscall_exit(-1);
+        }
+    }
+}
+
+void check_valid_string(const void *str, void *esp)
+{
+    struct vm_entry *vme = check_vaddr(str);
+    if (vme == NULL)
         syscall_exit(-1);
 }
 
@@ -448,4 +482,20 @@ void syscall_close(int fd)
     list_remove(&fde->fdtelem);
     palloc_free_page(fde);
     lock_release(&filesys_lock);
+}
+
+bool handle_mm_fault(struct vm_entry *vme)
+{
+    void *kaddr = palloc_get_page(1);
+    switch (vme->type)
+    {
+    case VM_BIN:
+        load_file(kaddr, vme);
+        break;
+    case VM_FILE:
+        break;
+    case VM_ANON:
+        break;
+    }
+    return true;
 }

@@ -11,6 +11,7 @@
 #include <hash.h>
 #include "threads/vaddr.h"
 #include "threads/palloc.h"
+#include "threads/thread.h"
 
 struct vm_entry
 {
@@ -34,5 +35,10 @@ struct vm_entry
 
 bool insert_vme(struct hash *vm, struct vm_entry *vme);
 bool delete_vme(struct hash *vm, struct vm_entry *vme);
+struct vm_entry *find_vme(void *vaddr);
+
+void vm_destroy(struct hash *vm);
+
+bool load_file(void *kaddr, struct vm_entry *vme);
 
 #endif

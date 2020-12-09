@@ -4,6 +4,7 @@
 #include "lib/user/syscall.h"
 #include "threads/synch.h"
 #include "threads/thread.h"
+#include "vm/page.h"
 
 #define MAX_ARGS 128
 
