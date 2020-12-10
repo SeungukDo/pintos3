@@ -86,7 +86,6 @@ static struct lock lru_list_lock;
 static struct page *lru_clock;
 struct thread
 {
-<<<<<<< HEAD
    /* Owned by thread.c. */
    tid_t tid;                 /* Thread identifier. */
    enum thread_status status; /* Thread state. */
@@ -110,38 +109,10 @@ struct thread
    /* Owned by thread.c. */
    int nice;       /* Figure that indicates how nice to others. */
    int recent_cpu; /* Weighted average amount of received CPU time. */
-=======
-   /* Owned by thread.c. */
-   tid_t tid;                 /* Thread identifier. */
-   enum thread_status status; /* Thread state. */
-   char name[16];             /* Name (for debugging purposes). */
-   uint8_t *stack;            /* Saved stack pointer. */
-   int priority;              /* Priority. */
-   struct list_elem allelem;  /* List element for all threads list. */
-
-   /* Shared between thread.c and synch.c. */
-   struct list_elem elem; /* List element. */
-
-   /* Owned by devices/timer.c. */
-   int64_t wake_ticks; /* Ticks to wake up. */
-
-   /* Shared between thread.c and synch.c. */
-   int original_priority;   /* Original priority before donation. */
-   struct list donators;    /* List of donators. */
-   struct list_elem doelem; /* List element for donators list. */
-   struct thread *donee;    /* Thread that is given priority. */
-
-   struct hash vm;
-   struct list mappingList;
-   int map_id;
-   /* Owned by thread.c. */
-   int nice;       /* Figure that indicates how nice to others. */
-   int recent_cpu; /* Weighted average amount of received CPU time. */
->>>>>>> origin/jyj
 
 #ifdef USERPROG
-       /* Shared between userprog/process.c and userprog/syscall.c. */
-       uint32_t *pagedir;     /* Page directory. */
+   /* Shared between userprog/process.c and userprog/syscall.c. */
+   uint32_t *pagedir;         /* Page directory. */
    struct process *pcb;       /* Process control block. */
    struct list children;      /* List of children processes. */
    struct list fdt;           /* List of file descriptor entries. */
@@ -152,6 +123,8 @@ struct thread
    /* Owned by thread.c. */
    unsigned magic; /* Detects stack overflow. */
 
+   struct list mappingList;
+   int map_id;
    struct hash vm;
 };
 
