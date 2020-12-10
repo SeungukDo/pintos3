@@ -607,7 +607,7 @@ void do_munmap(struct mmap_file* mmap_file){
         delete_vme(&thread_current()->vm, vme);
 
         temp = list_prev(elem);
-        lsit_remove(elem);
+        list_remove(elem);
         elem = temp;
     }
 }

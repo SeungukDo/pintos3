@@ -58,7 +58,7 @@ struct page* alloc_page(enum palloc_flags flags){
     rtn->kaddr = kaddr;
     rtn->pg_thread = thread_current();
 
-    add_page_to_lru_list(rtn)
+    add_page_to_lru_list(rtn);
     return rtn;
 }
 

@@ -570,16 +570,17 @@ setup_stack(void **esp)
     uint8_t *kpage;
     bool success = false;
 
-    kpage = alloc_page(PAL_USER | PAL_ZERO);
+    //kpage = alloc_page(PAL_USER | PAL_ZERO);
     //kpage = get_alloc(PAL_USER | PAL_ZERO);
+    kpage = palloc_get_page(PAL_USER | PAL_ZERO);
     if (kpage != NULL)
     {
         success = install_page(((uint8_t *)PHYS_BASE) - PGSIZE, kpage, true);
         if (success)
             *esp = PHYS_BASE;
         else
-            //palloc_free_page(kpage);
-            free_page(kpage);
+            palloc_free_page(kpage);
+            //free_page(kpage);
     }
 
     struct vm_entry *vme = (struct vm_entry *)malloc(sizeof(struct vm_entry));
