@@ -43,6 +43,8 @@ static struct thread *initial_thread;
 /* Lock used by allocate_tid(). */
 static struct lock tid_lock;
 
+
+
 /* Stack frame for kernel_thread(). */
 struct kernel_thread_frame
 {
@@ -638,7 +640,9 @@ init_thread(struct thread *t, const char *name, int priority)
     t->stack = (uint8_t *)t + PGSIZE;
     t->priority = t->original_priority = priority;
     list_init(&t->donators);
+    list_init(&t->mappingList);
     t->donee = NULL;
+    t->map_id = 0;
     if (thread_mlfqs)
     {
         t->nice = (t == initial_thread)

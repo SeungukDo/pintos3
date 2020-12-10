@@ -32,6 +32,23 @@ struct vm_entry
     size_t swap_slot;
 
     struct hash_elem elem;
+    bool addi;
+};
+
+struct mmap_file
+{
+    int mapid;
+    struct file *file;
+    struct list_elem elem;
+    struct list vme_list;
+};
+
+struct page
+{
+    void *kaddr;
+    struct vm_entry *vme;
+    struct thread *pg_thread;
+    struct list_elem lru_elem;
 };
 
 void vm_init(struct hash *vm);

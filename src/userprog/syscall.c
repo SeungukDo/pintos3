@@ -1,6 +1,8 @@
-#include "userprog/syscall.h"
 #include <stdio.h>
 #include <syscall-nr.h>
+#include "syscall.h"
+#include "pagedir.h"
+#include "process.h"
 #include "devices/input.h"
 #include "devices/shutdown.h"
 #include "filesys/file.h"
@@ -11,8 +13,7 @@
 #include "threads/synch.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
-#include "userprog/pagedir.h"
-#include "userprog/process.h"
+#include "vm/page.h"
 
 struct lock filesys_lock;
 
@@ -212,6 +213,19 @@ syscall_handler(struct intr_frame *f)
 
         syscall_close(fd);
         break;
+    }
+    case SYS_MMAP:
+    {
+		int fd = *(int *)(esp + sizeof(uintptr_t));
+        void* addr = *(void **)(esp + 2 * sizeof(uintptr_t));
+		f->eax = mmap(fd, addr);
+		break;
+    }
+	case SYS_MUNMAP:
+    {
+        int map = *(int *)(esp + sizeof(uintptr_t));
+		munmap(map);
+		break;
     }
     default:
         syscall_exit(-1);
@@ -481,4 +495,119 @@ void syscall_close(int fd)
     list_remove(&fde->fdtelem);
     palloc_free_page(fde);
     lock_release(&filesys_lock);
+}
+
+int mmap(int fd, void* addr){
+    struct mmap_file* map_entry = malloc(sizeof(struct mmap_file));
+    if((!addr) || ((int)addr&PGSIZE) != 0 || (!map_entry)){
+        return -1;
+    }
+
+    struct file* map_file = file_reopen(process_get_fde(fd));
+    if(!map_file){
+        return -1;
+    }
+
+    list_init(&map_entry->vme_list);
+    thread_current()->map_id++;
+    map_entry->mapid = thread_current()->map_id;
+    map_entry->file = map_file;
+
+    void* vaddr = addr;
+    struct vm_entry* vme;
+    int offset = 0;
+
+    int k = file_length(map_file)/PGSIZE;
+    for(int i = 0; i < k; i++){
+        vme = malloc(sizeof(struct vm_entry));
+        if(!vme){
+            return -1;
+        }
+
+        vme->type = VM_FILE;
+		vme->vaddr = vaddr;
+		vme->writable = true;
+		vme->is_loaded = false;
+		vme->file = map_file;
+		vme->offset = offset;
+		vme->read_bytes = PGSIZE;
+		vme->zero_bytes = 0;
+		vme->addi = false;
+
+        bool check = insert_vme(&thread_current()->vm, vme);
+        if(!check){
+            return -1;
+        }
+        list_push_back(&(map_entry->vme_list), &(vme->mmap_elem));
+        vaddr += PGSIZE;
+        offset += PGSIZE;
+    }
+
+    vme = malloc(sizeof(struct vm_entry));
+    if(!vme){
+        return -1;
+    }
+    k = file_length(map_file) % PGSIZE;
+    vme->type = VM_FILE;
+	vme->vaddr = vaddr;
+	vme->writable = true;
+	vme->is_loaded = false;
+	vme->file = map_file;
+	vme->offset = offset;
+	vme->read_bytes = k;
+	vme->zero_bytes = PGSIZE - k;;
+	vme->addi = false;
+
+    bool check = insert_vme(&thread_current()->vm, vme);
+    if(!check){
+        return -1;
+    }
+    list_push_back(&(map_entry->vme_list), &(vme->mmap_elem));
+    vaddr += PGSIZE;
+
+    list_push_back(&thread_current()->mappingList, &map_entry->elem);
+    return thread_current()->map_id;
+}
+
+void munmap(int mapping){
+    struct mmap_file* file;
+    for(struct list_elem* elem = list_begin(&thread_current()->mappingList);
+            elem != list_end(&thread_current()->mappingList); elem = list_next(elem)){
+        file = list_entry(elem, struct mmap_file, elem);
+
+        if(file->mapid == mapping){
+            do_munmap(file);
+            file_close(file->file);
+            struct list_elem* temp = list_prev(elem);
+            list_remove(elem);
+            elem = temp;
+            free(file);
+            break;
+        }
+    }
+}
+
+void do_munmap(struct mmap_file* mmap_file){
+    void* paddr;
+    struct vm_entry* vme;
+    struct list_elem* temp;
+    int* pagedir = thread_current()->pagedir;
+
+    for(struct list_elem* elem = list_begin(&mmap_file->vme_list);
+            elem != list_end(&mmap_file->vme_list); elem = list_next(elem)){
+        vme = list_entry(elem, struct vm_entry, mmap_elem);
+        if(vme->is_loaded){
+            paddr = pagedir_get_page(pagedir, vme->vaddr);
+            if(pagedir_is_dirty(pagedir, vme->vaddr)){
+                file_write_at(vme->file, vme->vaddr, vme->read_bytes, vme->offset);
+            }
+            pagedir_clear_page(pagedir, vme->vaddr);
+            free_page(paddr);
+        }
+        delete_vme(&thread_current()->vm, vme);
+
+        temp = list_prev(elem);
+        lsit_remove(elem);
+        elem = temp;
+    }
 }

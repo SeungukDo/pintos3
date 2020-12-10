@@ -43,5 +43,7 @@ void process_remove_child(struct process *);
 struct file_descriptor_entry *process_get_fde(int);
 
 bool handle_mm_fault(struct vm_entry *vme);
+bool expand_stack(void *addr);
+bool verify_stack(void *sp);
 
 #endif /* userprog/process.h */
