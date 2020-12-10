@@ -464,7 +464,7 @@ void syscall_close(int fd)
     lock_release(&filesys_lock);
 }
 
-int mmap(int fd, void *addr){
+int mmap(int fd, void* addr){
     struct mmap_file* map_entry = malloc(sizeof(struct mmap_file));
     if((!addr) || ((int)addr&PGSIZE) != 0 || (!map_entry)){
         return -1;
@@ -482,40 +482,55 @@ int mmap(int fd, void *addr){
 
     void* vaddr = addr;
     struct vm_entry* vme;
-    int read_byte, zero_byte, offset, i = file_length(map_file);
-    while(i > 0){
+    int offset = 0;
+
+    int k = file_length(map_file)/PGSIZE;
+    for(int i = 0; i < k; i++){
         vme = malloc(sizeof(struct vm_entry));
         if(!vme){
             return -1;
         }
-        if(PGSIZE > i){
-            read_byte = i;
-        }
-        else{
-            read_byte = PGSIZE;
-        }
-        zero_byte = PGSIZE - read_byte;
 
         vme->type = VM_FILE;
 		vme->vaddr = vaddr;
 		vme->writable = true;
 		vme->is_loaded = false;
-		vme->addi = false;
 		vme->file = map_file;
 		vme->offset = offset;
-		vme->read_bytes = read_byte;
-		vme->zero_bytes = zero_byte;
+		vme->read_bytes = PGSIZE;
+		vme->zero_bytes = 0;
+		vme->addi = false;
 
-        bool chck = insert_vme(&thread_current()->vm, vme);
-        if(!chck){
+        bool check = insert_vme(&thread_current()->vm, vme);
+        if(!check){
             return -1;
         }
         list_push_back(&(map_entry->vme_list), &(vme->mmap_elem));
-        
         vaddr += PGSIZE;
-        i = i - read_byte;
-        offset += read_byte;
+        offset += PGSIZE;
     }
+
+    vme = malloc(sizeof(struct vm_entry));
+    if(!vme){
+        return -1;
+    }
+    k = file_length(map_file) % PGSIZE;
+    vme->type = VM_FILE;
+	vme->vaddr = vaddr;
+	vme->writable = true;
+	vme->is_loaded = false;
+	vme->file = map_file;
+	vme->offset = offset;
+	vme->read_bytes = k;
+	vme->zero_bytes = PGSIZE - k;;
+	vme->addi = false;
+
+    bool check = insert_vme(&thread_current()->vm, vme);
+    if(!check){
+        return -1;
+    }
+    list_push_back(&(map_entry->vme_list), &(vme->mmap_elem));
+    vaddr += PGSIZE;
 
     list_push_back(&thread_current()->mappingList, &map_entry->elem);
     return thread_current()->map_id;
@@ -539,7 +554,7 @@ void munmap(int mapping){
     }
 }
 
-void do_munmap(struct mmap_file *mmap_file){
+void do_munmap(struct mmap_file* mmap_file){
     void* paddr;
     struct vm_entry* vme;
     struct list_elem* temp;

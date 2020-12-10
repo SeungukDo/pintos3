@@ -7,13 +7,13 @@
 #include "userprog/pagedir.h"
 #include "filesys/file.h"
 
-void lru_list_init(void){
+void lru_list_init(){
     list_init(&lru_list);
     lock_init(&lru_list_lock);
     lru_clock = NULL;
 }
 
-void add_page_to_lru_list(struct page *page){
+void add_page_to_lru_list(struct page* page){
     if(page){     //@@@@@@@@@@@@@@@@@@@@@@@@@@@@
         lock_acquire(&lru_list_lock);
 
@@ -36,7 +36,7 @@ void del_page_from_lru_list(struct page* page){
 }
 
 struct page* alloc_page(enum palloc_flags flags){
-    if(flags!=PAL_USER)     //@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+    if(flags!=PAL_USER)
         return NULL;
 
     struct page* rtn = malloc(sizeof(struct page));
@@ -58,16 +58,16 @@ struct page* alloc_page(enum palloc_flags flags){
     rtn->kaddr = kaddr;
     rtn->pg_thread = thread_current();
 
-    add_page_to_lru_list(rtn);     //@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+    add_page_to_lru_list(rtn)
     return rtn;
 }
 
-void free_page(void *kaddr){
+void free_page(void* kaddr){
     lock_acquire(&lru_list_lock);
     for(struct list_elem* elem = list_begin(&lru_list);
             elem != list_end(&lru_list); elem = list_next(elem)){
         if(list_entry(elem, struct page, lru_elem)->kaddr == kaddr){
-            __free_page(list_entry(elem, struct page, lru_elem));     //@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+            __free_page(list_entry(elem, struct page, lru_elem));
             break;
         }
     }
@@ -80,7 +80,7 @@ void __free_page(struct page* page){
     free(page);
 }
 
-struct list_elem* get_next_lru_clock(void){
+struct list_elem* get_next_lru_clock(){
     if(!lru_clock){
         if(list_begin(&lru_list) == list_end(&lru_list)){
             return NULL;
