@@ -1,4 +1,5 @@
 #include "vm/page.h"
+#include <string.h>
 
 static unsigned vm_hash_func(const struct hash_elem *e, void *aux);
 static bool vm_less_func(const struct hash_elem *a, const struct hash_elem *b);
@@ -48,12 +49,12 @@ struct vm_entry *find_vme(void *vaddr)
     struct vm_entry vme;
     struct hash_elem *e;
     struct thread *t = thread_current();
-    vme.vaddr = (void *)(pg_no(vaddr) << PGBITS);
+    vme.vaddr = (void *)(pg_round_down(vaddr));
 
     e = hash_find(&(t->vm), &vme.elem);
     if (e == NULL)
     {
-        printf("find_vme not found: %x\n", vaddr);
+        printf("find_vme not found: %x\n", pg_round_down(vaddr));
         return NULL;
     }
     else
@@ -81,15 +82,13 @@ void page_destructor (struct hash_elem *e, void *aux UNUSED)
 
 bool load_file(void *kaddr, struct vm_entry *vme)
 {
-    printf("Hello2 %x\n", vme->vaddr);
-    printf("is file null? %d\n", vme->file == NULL);
+    //printf("load file %x\n", vme->vaddr);
     file_seek(vme->file, vme->offset);
-    if (file_read(vme->file, kaddr, vme->offset) != vme->read_bytes)
+    if (file_read(vme->file, kaddr, vme->read_bytes) != vme->read_bytes)
     {
         return false;
     }
     memset(kaddr + vme->read_bytes, 0, vme->zero_bytes);
-    vme->is_loaded = true;
 
     return true;
 }

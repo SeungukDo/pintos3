@@ -12,6 +12,7 @@
 #include "threads/vaddr.h"
 #include "threads/palloc.h"
 #include "threads/thread.h"
+#include "filesys/file.h"
 
 struct vm_entry
 {
@@ -33,6 +34,7 @@ struct vm_entry
     struct hash_elem elem;
 };
 
+void vm_init(struct hash *vm);
 bool insert_vme(struct hash *vm, struct vm_entry *vme);
 bool delete_vme(struct hash *vm, struct vm_entry *vme);
 struct vm_entry *find_vme(void *vaddr);

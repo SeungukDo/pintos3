@@ -185,7 +185,7 @@ void process_exit(void)
     file_close(thread_get_running_file());
     lock_release(filesys_lock);
 
-    vm_destroy(&cur->vm);
+    //vm_destroy(&cur->vm);
 
     /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
@@ -546,14 +546,14 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
         vme->read_bytes = page_read_bytes;
         vme->zero_bytes = page_zero_bytes;
 
-        printf("load segment: %x\n", vme->vaddr);
+        //printf("load segment: %x\n", vme->vaddr);
 
-        int is_true = insert_vme(&thread_current()->vm, &vme->elem);
-        printf("insertion success? %d\n", is_true);
+        insert_vme(&thread_current()->vm, vme);
 
         /* Advance. */
         read_bytes -= page_read_bytes;
         zero_bytes -= page_zero_bytes;
+        ofs += page_read_bytes;
         upage += PGSIZE;
     }
     return true;
@@ -602,6 +602,7 @@ setup_stack(void **esp)
 static bool
 install_page(void *upage, void *kpage, bool writable)
 {
+    //printf("install_page, kpage: %x upage: %x\n", kpage, upage);
     struct thread *t = thread_current();
 
     /* Verify that there's not already a page at that virtual
@@ -660,12 +661,22 @@ static void push_arguments(int argc, char **argv, void **esp)
 bool handle_mm_fault(struct vm_entry *vme)
 {
     void *kaddr = palloc_get_page(1);
-    printf("handle_mm_fault: %x\n", vme->vaddr);
+    //printf("handle_mm_fault: %x\n", vme->vaddr);
     switch (vme->type)
     {
     case VM_BIN:
-        printf("handle_mm_fault VM_BIN: %x\n", vme->vaddr);
-        load_file(kaddr, vme);
+        //printf("handle_mm_fault VM_BIN: %x\n", vme->vaddr);
+        if (load_file(kaddr, vme) == false)
+        {
+            //printf("load_file failed\n");
+            return false;
+        }
+        vme->is_loaded = true;
+        if (install_page(vme->vaddr, kaddr, true) == false)
+        {
+            //printf("install page failed\n");
+            return false;
+        }
         break;
     case VM_FILE:
         break;

@@ -171,8 +171,11 @@ page_fault(struct intr_frame *f)
 
     if (not_present)
     {
-        printf("page fault not present: %x\n", fault_addr);
+        //printf("page fault not present: %x\n", fault_addr);
         struct vm_entry *vme = find_vme(pg_round_down(fault_addr));
-        handle_mm_fault(vme);
+        if (handle_mm_fault(vme) == false)
+        {
+            printf("handle_mm_fault failed\n");
+        }
     }
 }
