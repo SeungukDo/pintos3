@@ -11,7 +11,7 @@ void vm_init(struct hash *vm)
 static unsigned vm_hash_func(const struct hash_elem *e, void *aux)
 {
     struct vm_entry *entry = hash_entry(e, struct vm_entry, elem);
-    return hash_int(entry->vaddr);
+    return hash_int((int)entry->vaddr);
 }
 
 static bool vm_less_func(const struct hash_elem *a, const struct hash_elem *b)
@@ -19,7 +19,14 @@ static bool vm_less_func(const struct hash_elem *a, const struct hash_elem *b)
     struct vm_entry *a_entry = hash_entry(a, struct vm_entry, elem);
     struct vm_entry *b_entry = hash_entry(b, struct vm_entry, elem);
 
-    return pg_no(b_entry->vaddr) > pg_no(a_entry->vaddr);
+    if (pg_no(b_entry->vaddr) > pg_no(a_entry->vaddr))
+    {
+        return true;
+    }
+    else
+    {
+        return false;
+    }
 }
 
 bool insert_vme(struct hash *vm, struct vm_entry *vme)
@@ -44,9 +51,11 @@ struct vm_entry *find_vme(void *vaddr)
     vme.vaddr = (void *)(pg_no(vaddr) << PGBITS);
 
     e = hash_find(&(t->vm), &vme.elem);
-
     if (e == NULL)
+    {
+        printf("find_vme not found: %x\n", vaddr);
         return NULL;
+    }
     else
     {
         return hash_entry(e, struct vm_entry, elem);
@@ -72,6 +81,8 @@ void page_destructor (struct hash_elem *e, void *aux UNUSED)
 
 bool load_file(void *kaddr, struct vm_entry *vme)
 {
+    printf("Hello2 %x\n", vme->vaddr);
+    printf("is file null? %d\n", vme->file == NULL);
     file_seek(vme->file, vme->offset);
     if (file_read(vme->file, kaddr, vme->offset) != vme->read_bytes)
     {

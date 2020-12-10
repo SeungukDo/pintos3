@@ -42,4 +42,6 @@ struct process *process_get_child(pid_t);
 void process_remove_child(struct process *);
 struct file_descriptor_entry *process_get_fde(int);
 
+bool handle_mm_fault(struct vm_entry *vme);
+
 #endif /* userprog/process.h */

@@ -34,7 +34,6 @@ static int syscall_write(int, const void *, unsigned);
 static void syscall_seek(int, unsigned);
 static unsigned syscall_tell(int);
 
-bool handle_mm_fault(struct vm_entry *vme);
 /* Registers the system call interrupt handler. */
 void syscall_init(void)
 {
@@ -482,20 +481,4 @@ void syscall_close(int fd)
     list_remove(&fde->fdtelem);
     palloc_free_page(fde);
     lock_release(&filesys_lock);
-}
-
-bool handle_mm_fault(struct vm_entry *vme)
-{
-    void *kaddr = palloc_get_page(1);
-    switch (vme->type)
-    {
-    case VM_BIN:
-        load_file(kaddr, vme);
-        break;
-    case VM_FILE:
-        break;
-    case VM_ANON:
-        break;
-    }
-    return true;
 }

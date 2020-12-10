@@ -521,7 +521,7 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
     ASSERT((read_bytes + zero_bytes) % PGSIZE == 0);
     ASSERT(pg_ofs(upage) == 0);
     ASSERT(ofs % PGSIZE == 0);
-
+    ;
     file_seek(file, ofs);
     while (read_bytes > 0 || zero_bytes > 0)
     {
@@ -546,7 +546,10 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
         vme->read_bytes = page_read_bytes;
         vme->zero_bytes = page_zero_bytes;
 
-        insert_vme(&thread_current()->vm, &vme->elem);
+        printf("load segment: %x\n", vme->vaddr);
+
+        int is_true = insert_vme(&thread_current()->vm, &vme->elem);
+        printf("insertion success? %d\n", is_true);
 
         /* Advance. */
         read_bytes -= page_read_bytes;
@@ -652,4 +655,22 @@ static void push_arguments(int argc, char **argv, void **esp)
 
     /* Push dummy return address. */
     *esp -= sizeof(uintptr_t);
+}
+
+bool handle_mm_fault(struct vm_entry *vme)
+{
+    void *kaddr = palloc_get_page(1);
+    printf("handle_mm_fault: %x\n", vme->vaddr);
+    switch (vme->type)
+    {
+    case VM_BIN:
+        printf("handle_mm_fault VM_BIN: %x\n", vme->vaddr);
+        load_file(kaddr, vme);
+        break;
+    case VM_FILE:
+        break;
+    case VM_ANON:
+        break;
+    }
+    return true;
 }

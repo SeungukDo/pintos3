@@ -6,6 +6,7 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "vm/page.h"
+#include "process.h"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -163,10 +164,15 @@ page_fault(struct intr_frame *f)
     //       write ? "writing" : "reading",
     //       user ? "user" : "kernel");
     //kill(f);
+    if (fault_addr == NULL || fault_addr >= PHYS_BASE || fault_addr < (void *)0x08048000 || (!not_present))
+    {
+        syscall_exit(-1);
+    }
 
     if (not_present)
     {
-        struct vm_entry *vme = find_vme(fault_addr);
+        printf("page fault not present: %x\n", fault_addr);
+        struct vm_entry *vme = find_vme(pg_round_down(fault_addr));
         handle_mm_fault(vme);
     }
 }
