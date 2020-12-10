@@ -664,15 +664,10 @@ bool expand_stack(void* addr){
     
     temp_page->vme = vme;
 
-    if(!install_page(vme->vaddr, temp_page->kaddr, vme->writable)
-            || !insert_vme(&thread_current()->vm, vme)){
+    if(!install_page(vme->vaddr, temp_page->kaddr, vme->writable)){
         free(vme);
         free_page(temp_page);
         return false;
-    }
-
-    if(intr_context()){
-        vme->addi = false;
     }
 
     return true;

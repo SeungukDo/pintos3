@@ -25,24 +25,25 @@ void swap_init(){
 
 void swap_in(int used_index, void* kaddr){
     lock_acquire(&swap_lock);
-    if(bitmap_test(swap_bitmap, used_index)==0)
+    if(!bitmap_test(swap_bitmap, used_index))
         return;
     
     for(int i = 0; i < 8; i++)
-		block_read(swap_block, used_index * 8 + i, (uint8_t *)kaddr + i * 8);
+		block_read(swap_block, used_index * 8 + i, (int *)kaddr + i * 8);
     
-    bitmap_flip(swap_bitmap, used_index);
+    bitmap_set(swap_bitmap, used_index, false);
     lock_release(&swap_lock);
 }
 
 int swap_out(void* kaddr){
     lock_acquire(&swap_lock);
+    
     int idx = bitmap_scan_and_flip(swap_bitmap, 0, 1, 0);
     if(idx == BITMAP_ERROR)
         return idx;
     
     for(int i = 0; i < 8; i++)
-		block_write(swap_block, idx * 8 + i, (uint8_t *)kaddr + i * 8);
+		block_write(swap_block, idx * 8 + i, (int *)kaddr + i * 8);
 
     lock_release(&swap_lock);
     return idx;
