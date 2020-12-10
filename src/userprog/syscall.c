@@ -532,7 +532,6 @@ int mmap(int fd, void* addr){
 		vme->offset = offset;
 		vme->read_bytes = PGSIZE;
 		vme->zero_bytes = 0;
-		vme->addi = false;
 
         bool check = insert_vme(&thread_current()->vm, vme);
         if(!check){
@@ -556,7 +555,6 @@ int mmap(int fd, void* addr){
 	vme->offset = offset;
 	vme->read_bytes = k;
 	vme->zero_bytes = PGSIZE - k;;
-	vme->addi = false;
 
     bool check = insert_vme(&thread_current()->vm, vme);
     if(!check){

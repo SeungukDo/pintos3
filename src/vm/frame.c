@@ -14,7 +14,7 @@ void lru_list_init(){
 }
 
 void add_page_to_lru_list(struct page* page){
-    if(page){     //@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+    if(page){
         lock_acquire(&lru_list_lock);
 
         list_push_back(&lru_list, &page->lru_elem);
@@ -24,7 +24,7 @@ void add_page_to_lru_list(struct page* page){
 }
 
 void del_page_from_lru_list(struct page* page){
-    if(page){     //@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+    if(page){
         if(lru_clock == page){
             struct list_elem* temp = list_remove(&page->lru_elem);
             lru_clock = list_entry(temp, struct page, lru_elem);
@@ -36,24 +36,9 @@ void del_page_from_lru_list(struct page* page){
 }
 
 struct page* alloc_page(enum palloc_flags flags){
-    if(flags!=PAL_USER)
-        return NULL;
-
     struct page* rtn = malloc(sizeof(struct page));
-    if(rtn == NULL){
-        return NULL;
-    }
 
-    void *kaddr = palloc_get_page(PAL_USER);
-    while(true){
-        if(!kaddr){
-            try_to_free_pages(flags);
-            kaddr = palloc_get_page(PAL_USER);
-        }
-        else{
-            break;
-        }
-    }
+    void *kaddr = palloc_get_page(flags);
     
     rtn->kaddr = kaddr;
     rtn->pg_thread = thread_current();
@@ -92,12 +77,12 @@ struct list_elem* get_next_lru_clock(){
     }
 
     if(list_next(&lru_clock->lru_elem) == list_end(&lru_list)){
-        if(&lru_clock->lru_elem == list_begin(&lru_list)){
-            return NULL;
-        }
-        else{
+        if(&lru_clock->lru_elem != list_begin(&lru_list)){
             lru_clock = list_entry(list_begin(&lru_list), struct page, lru_elem);
             return list_begin(&lru_list);
+        }
+        else{
+            return NULL;
         }
     }
     lru_clock = list_entry(list_next(&lru_clock->lru_elem), struct page, lru_elem);
@@ -122,9 +107,6 @@ void try_to_free_pages(enum palloc_flags flags){
             return;
         }
         temp = list_entry(elem, struct page, lru_elem);
-        if(temp->vme->addi){
-            continue;
-        }
         dir = temp->pg_thread->pagedir;
 
         if(pagedir_is_accessed(dir, temp->vme->vaddr)){

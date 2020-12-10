@@ -39,9 +39,6 @@ int swap_out(void* kaddr){
     lock_acquire(&swap_lock);
     
     int idx = bitmap_scan_and_flip(swap_bitmap, 0, 1, 0);
-    if(idx == BITMAP_ERROR)
-        return idx;
-    
     for(int i = 0; i < 8; i++)
 		block_write(swap_block, idx * 8 + i, (int *)kaddr + i * 8);
 

@@ -571,7 +571,6 @@ setup_stack(void **esp)
     bool success = false;
 
     //kpage = alloc_page(PAL_USER | PAL_ZERO);
-    //kpage = get_alloc(PAL_USER | PAL_ZERO);
     kpage = palloc_get_page(PAL_USER | PAL_ZERO);
     if (kpage != NULL)
     {
@@ -579,8 +578,8 @@ setup_stack(void **esp)
         if (success)
             *esp = PHYS_BASE;
         else
-            palloc_free_page(kpage);
-            //free_page(kpage);
+            //palloc_free_page(kpage);
+            free_page(kpage);
     }
 
     struct vm_entry *vme = (struct vm_entry *)malloc(sizeof(struct vm_entry));
@@ -693,34 +692,21 @@ bool handle_mm_fault(struct vm_entry *vme)
 }
 bool expand_stack(void *addr)
 {
-    if (PHYS_BASE - (int)pg_round_down(addr) > (1 << 23))
-        return false;
-
     struct page *temp_page = alloc_page(PAL_USER);
-    if (!temp_page)
-        return false;
-
     struct vm_entry *vme = malloc(sizeof(struct vm_entry));
-    if (!vme)
-        return false;
+
     vme->type = VM_ANON;
     vme->vaddr = pg_round_down(addr);
     vme->writable = true;
     vme->is_loaded = true;
-    vme->addi = true;
 
     temp_page->vme = vme;
 
     if (!install_page(vme->vaddr, temp_page->kaddr, vme->writable))
     {
         free(vme);
-        free_page(temp_page);
+        palloc_free_page(temp_page);
         return false;
     }
-
     return true;
-}
-
-bool verify_stack(void *sp)
-{
 }

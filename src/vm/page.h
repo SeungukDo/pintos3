@@ -32,7 +32,6 @@ struct vm_entry
     size_t swap_slot;
 
     struct hash_elem elem;
-    bool addi;
 };
 
 struct mmap_file
